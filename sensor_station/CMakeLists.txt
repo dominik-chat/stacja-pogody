@@ -21,5 +21,7 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 
 project(SensorStation)
 
-FILE(GLOB srcs src/main.c)
-target_sources(app PRIVATE ${srcs})
+target_sources(app PRIVATE
+  src/main.c
+  src/ess.c
+)

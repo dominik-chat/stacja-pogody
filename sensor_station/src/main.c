@@ -23,9 +23,28 @@
 #include <devicetree.h>
 #include <drivers/sensor.h>
 
+#include <bluetooth/bluetooth.h>
+#include <bluetooth/hci.h>
+#include <bluetooth/conn.h>
+#include <bluetooth/uuid.h>
+#include <bluetooth/gatt.h>
+
+#include "ess.h"
+
 #define MODULE main
 #include <logging/log.h>
 LOG_MODULE_REGISTER(MODULE);
+
+
+static const struct bt_data adver[] = {
+	BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
+	BT_DATA(BT_DATA_NAME_COMPLETE, CONFIG_BT_DEVICE_NAME,
+		(sizeof(CONFIG_BT_DEVICE_NAME) - 1)),
+};
+
+static const struct bt_data serv[] = {
+	BT_DATA_BYTES(BT_DATA_UUID128_ALL, BT_UUID_16_ENCODE(BT_UUID_ESS_VAL)),
+};
 
 
 static int read_bmp(const struct device *dev, double *temp, double *press)
@@ -62,6 +81,24 @@ void main(void)
 		return;
 	}
 
+	err = bt_enable(NULL);
+	if (err) {
+		LOG_ERR("Bluetooth init failed .");
+		return;
+	}
+
+	if (bt_ess_init()) {
+		LOG_ERR("Error initializing ESS.");
+		return;
+	}
+
+	err = bt_le_adv_start(BT_LE_ADV_CONN, adver, ARRAY_SIZE(adver),
+			      serv, ARRAY_SIZE(serv));
+	if (err) {
+		LOG_ERR("Advertising failed.");
+		return;
+	}
+
 	while (1) {
 		err = read_bmp(dev, &temp, &press);
 		if (err) {
@@ -69,7 +106,9 @@ void main(void)
 			return;
 		}
 
-		printk("Temperature: %f oC, Pressure: %f kPa\n", temp, press);
+		//printk("Temperature: %f oC, Pressure: %f kPa\n", temp, press);
+		printk("Press %i ", bt_ess_send_pressure(press));
+		printk("Temp %i \n", bt_ess_send_temperature(temp));
 
 		k_sleep(K_MSEC(1000));
 	}
