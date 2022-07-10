@@ -31,7 +31,41 @@
 
 static bool notify_press;
 static bool notify_temp;
+static uint32_t pressure;
+static int16_t temperature;
 
+
+static uint32_t press_to_val(double press)
+{
+	return (press * 10 * 1000);
+}
+
+static int16_t temp_to_val(double temp)
+{
+	return (temp * 100);
+}
+
+static ssize_t read_press(struct bt_conn *conn, const struct bt_gatt_attr *attr,
+			  void *buf, uint16_t len, uint16_t offset)
+{
+	const uint32_t *press = attr->user_data;
+
+	return bt_gatt_attr_read(conn, attr, buf, len, offset, press,
+				 sizeof(*press));
+
+	return 0;
+}
+
+static ssize_t read_temp(struct bt_conn *conn, const struct bt_gatt_attr *attr,
+			 void *buf, uint16_t len, uint16_t offset)
+{
+	const int16_t *temp = attr->user_data;
+
+	return bt_gatt_attr_read(conn, attr, buf, len, offset, temp,
+				 sizeof(*temp));
+
+	return 0;
+}
 
 static void press_ccc_cfg(const struct bt_gatt_attr *attr, uint16_t value)
 {
@@ -46,11 +80,15 @@ static void temp_ccc_cfg(const struct bt_gatt_attr *attr, uint16_t value)
 
 BT_GATT_SERVICE_DEFINE(ess_svc,
 BT_GATT_PRIMARY_SERVICE(BT_UUID_ESS),
-	BT_GATT_CHARACTERISTIC(BT_UUID_PRESSURE, BT_GATT_CHRC_NOTIFY,
-			       BT_GATT_PERM_READ, NULL, NULL, NULL),
+	BT_GATT_CHARACTERISTIC(BT_UUID_PRESSURE,
+			       BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
+			       BT_GATT_PERM_READ,
+			       read_press, NULL, &pressure),
 	BT_GATT_CCC(press_ccc_cfg, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
-	BT_GATT_CHARACTERISTIC(BT_UUID_TEMPERATURE, BT_GATT_CHRC_NOTIFY,
-			       BT_GATT_PERM_READ, NULL, NULL, NULL),
+	BT_GATT_CHARACTERISTIC(BT_UUID_TEMPERATURE,
+			       BT_GATT_CHRC_READ | BT_GATT_CHRC_NOTIFY,
+			       BT_GATT_PERM_READ,
+			       read_temp, NULL, &temperature),
 	BT_GATT_CCC(temp_ccc_cfg,  BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
 );
 
@@ -62,24 +100,24 @@ int bt_ess_init()
 
 int bt_ess_send_pressure(double press)
 {
-	uint32_t val;
+	pressure = press_to_val(press);
 
 	if (!notify_press) {
 		return -EACCES;
 	}
 
-	val = (press * 10 * 1000);
-	return bt_gatt_notify(NULL, &ess_svc.attrs[2], &val, sizeof(val));
+	return bt_gatt_notify(NULL, &ess_svc.attrs[2], &pressure,
+							sizeof(pressure));
 }
 
 int bt_ess_send_temperature(double temp)
 {
-	int16_t val;
+	temperature = temp_to_val(temp);
 
 	if (!notify_temp) {
 		return -EACCES;
 	}
 
-	val = (temp * 100);
-	return bt_gatt_notify(NULL, &ess_svc.attrs[4], &val, sizeof(val));
+	return bt_gatt_notify(NULL, &ess_svc.attrs[4], &temperature,
+							sizeof(temperature));
 }

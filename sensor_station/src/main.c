@@ -106,9 +106,8 @@ void main(void)
 			return;
 		}
 
-		//printk("Temperature: %f oC, Pressure: %f kPa\n", temp, press);
-		printk("Press %i ", bt_ess_send_pressure(press));
-		printk("Temp %i \n", bt_ess_send_temperature(temp));
+		LOG_INF("Press retval %i ", bt_ess_send_pressure(press));
+		LOG_INF("Temp retval %i \n", bt_ess_send_temperature(temp));
 
 		k_sleep(K_MSEC(1000));
 	}
